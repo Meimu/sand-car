@@ -4896,6 +4896,33 @@ CQ_INIT {
 				send_group_message(groupNumber, backMessage);
 				return;
 			}
+			
+			if (message.substr(tmp, 6) == "生产")
+			{
+				string backMessage = "";
+				string licensePlateNumber = getLicensePlateNumber(groupNumber);
+				string errorMessage1 = "没时间解释了了，快上车！\n（请使用 .getincar";//如果没有上车的情况
+				string errorMessage2 = "诶？这里好像还没有车……\n（请使用 .init 沙车阶段一 ";//如果没有车的情况
+
+				if (licensePlateNumber == "")
+				{
+					send_group_message(groupNumber, errorMessage2);
+					return;
+				}
+				
+				Members memberInfo = getMemberInfo(licensePlateNumber, e.user_id);
+				if (!memberInfo.flag)
+				{
+					send_group_message(groupNumber, errorMessage1);
+					return;
+				}
+
+				backMessage += "1000废铁-100铁-10铜-1钢-0.1银-0.01金\n";
+				backMessage += "10鸟肉-1鸟肉火锅\n";
+				backMessage += "4狗肉-1狗肉火锅";
+				send_group_message(groupNumber, backMessage);
+				return;
+			}
 		}
 
 		if (message.substr(1, 6) == "attack")
@@ -4942,11 +4969,11 @@ CQ_INIT {
 			{
 				centerInfo.invaders = 0;
 				backMessage += "入侵者" + centerInfo.inv.name + "被击败了。";
+				centerInfo.publicSecurity += 5;
 			}
 			else
 				backMessage += "入侵者" + centerInfo.inv.name + "还剩" + num2str(centerInfo.inv.HP) + "HP。";
 			memberInfo.CP += 2;
-			centerInfo.publicSecurity += 5;
 			if (centerInfo.publicSecurity >= 100)
 				centerInfo.publicSecurity = 100;
 			memberInfo.funTime = nowTime;
