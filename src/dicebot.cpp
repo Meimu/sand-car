@@ -5,12 +5,13 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <ctime>
 
 #include <cqcppsdk/cqcppsdk.h>
 
-#include "ttools.h"
-#include "rrandom.h"
-#include "sandcar.h"
+#include "ttools.hpp"
+#include "rrandom.hpp"
+#include "sandcar.hpp"
 
 using namespace cq;
 using namespace std;
@@ -4690,6 +4691,7 @@ CQ_INIT {
 			outMember << "FATE" << "," << "2" << endl;
 			outMember << "CP" << "," << "0" << endl;
 			outMember << "物品" << "," << "0" << endl;
+			outMember << "0,0";
 			return;
 		}
 
@@ -4896,14 +4898,275 @@ CQ_INIT {
 			}
 		}
 
-		if (message.substr(1, 3) == "adv")
+		if (message.substr(1, 6) == "attack")
 		{
-			int tmp = 4;//当前字符串的位置
+			int tmp = 7;//当前字符串的位置
 			if (message[tmp] == ' ') tmp++;
-			if (message[tmp] == '1' || message.substr(tmp, 18) == "废料的垃圾场")
-			{
+			
+			string errorMessage3 = "风平浪静的据点，没有可攻击的目标。";//如果没有入侵者的情况
+			string errorMessage4 = userNickname + "还处于休息状态，并不能进行操作。\n（休息状态每次持续一个小时";
+			Centers centerInfo;
+			string backMessage = userNickname + "对入侵者进行了攻击，";
+			string licensePlateNumber = getLicensePlateNumber(groupNumber);
+			string errorMessage1 = "没时间解释了了，快上车！\n（请使用 .getincar";//如果没有上车的情况
+			string errorMessage2 = "诶？这里好像还没有车……\n（请使用 .init 沙车阶段一 ";//如果没有车的情况
 
+			if (licensePlateNumber == "")
+			{
+				send_group_message(groupNumber, errorMessage2);
+				return;
 			}
+
+			Members memberInfo = getMemberInfo(licensePlateNumber, e.user_id);
+			if (!memberInfo.flag)
+			{
+				send_group_message(groupNumber, errorMessage1);
+				return;
+			}
+			time_t nowTime = time(NULL);
+			if (nowTime - memberInfo.funTime < 60 * 60)
+			{
+				send_group_message(groupNumber, errorMessage4);
+				return;
+			}
+
+			centerInfo = getCenterInfo(licensePlateNumber);
+			if (!centerInfo.invaders)
+			{
+				send_group_message(groupNumber, errorMessage3);
+				return;
+			}
+
+			centerInfo.inv.HP -= memberInfo.maxQuality();
+			if (centerInfo.inv.HP <= 0)
+			{
+				centerInfo.invaders = 0;
+				backMessage += "入侵者" + centerInfo.inv.name + "被击败了。";
+			}
+			else
+				backMessage += "入侵者" + centerInfo.inv.name + "还剩" + num2str(centerInfo.inv.HP) + "HP。";
+			memberInfo.CP += 2;
+			centerInfo.publicSecurity += 5;
+			if (centerInfo.publicSecurity >= 100)
+				centerInfo.publicSecurity = 100;
+			memberInfo.funTime = nowTime;
+			SandCar carInfo = getCarInfo(licensePlateNumber);
+			updataMemberInfo(memberInfo, licensePlateNumber, e.user_id);
+			updataCenterInfo(carInfo, centerInfo, licensePlateNumber);
+			send_group_message(groupNumber, backMessage);
+			return;
+		}
+
+		if (message.substr(1, 5) == "learn")
+		{
+			int tmp = 6;//当前字符串的位置
+			if (message[tmp] == ' ') tmp++;
+
+			string errorMessage3 = "要劳逸结合，不要总想着学习，还是出去走走吧。";
+			string errorMessage4 = userNickname + "还处于休息状态，并不能进行操作。\n（休息状态每次持续一个小时";
+			string licensePlateNumber = getLicensePlateNumber(groupNumber);
+			string errorMessage1 = "没时间解释了了，快上车！\n（请使用 .getincar";//如果没有上车的情况
+			string errorMessage2 = "诶？这里好像还没有车……\n（请使用 .init 沙车阶段一 ";//如果没有车的情况
+
+			if (licensePlateNumber == "")
+			{
+				send_group_message(groupNumber, errorMessage2);
+				return;
+			}
+
+			Members memberInfo = getMemberInfo(licensePlateNumber, e.user_id);
+			if (!memberInfo.flag)
+			{
+				send_group_message(groupNumber, errorMessage1);
+				return;
+			}
+			if (memberInfo.CP < 2)
+			{
+				send_group_message(groupNumber, errorMessage3);
+				return;
+			}
+			time_t nowTime = time(NULL);
+			if (nowTime - memberInfo.funTime < 60 * 60)
+			{
+				send_group_message(groupNumber, errorMessage4);
+				return;
+			}
+
+			string backMessage1 = "\n以这种温吞的方式学习的话，恐怕不会有太多进展。";
+			string backMessage2 = "\n从迷茫中睁开眼睛，一切都是那么的新奇。";
+			string backMessage = "";
+			if (message.substr(tmp, 3) == "STR" || message.substr(tmp, 6) == "力量")
+			{
+				int EXP = 0;
+				if (memberInfo.STR <= 60) EXP = 40 + _random(20);
+				else if (memberInfo.STR <= 80) EXP = 20 + _random(10);
+				else EXP = 10 + _random(5);
+				backMessage += "经过了努力，" + userNickname + "的STR经验提升了\n";
+				backMessage += num2str(memberInfo.STR) + "（" + num2str(memberInfo.strEXP) + "）->";
+				memberInfo.strEXP += EXP;
+				memberInfo.updata();
+				backMessage += num2str(memberInfo.STR) + "（" + num2str(memberInfo.strEXP) + "）";
+				if (EXP > 40) backMessage += backMessage2;
+				else if (EXP < 20) backMessage += backMessage1;
+			}
+			else if (message.substr(tmp, 3) == "DEX" || message.substr(tmp, 6) == "灵巧")
+			{
+				int EXP = 0;
+				if (memberInfo.DEX <= 60) EXP = 40 + _random(20);
+				else if (memberInfo.DEX <= 80) EXP = 20 + _random(10);
+				else EXP = 10 + _random(5);
+				backMessage += "经过了努力，" + userNickname + "的DEX经验提升了\n";
+				backMessage += num2str(memberInfo.DEX) + "（" + num2str(memberInfo.dexEXP) + "）->";
+				memberInfo.dexEXP += EXP;
+				memberInfo.updata();
+				backMessage += num2str(memberInfo.DEX) + "（" + num2str(memberInfo.dexEXP) + "）";
+				if (EXP > 40) backMessage += backMessage2;
+				else if (EXP < 20) backMessage += backMessage1;
+			}
+			else if (message.substr(tmp, 3) == "INT" || message.substr(tmp, 6) == "智慧")
+			{
+				int EXP = 0;
+				if (memberInfo.INT <= 60) EXP = 40 + _random(20);
+				else if (memberInfo.INT <= 80) EXP = 20 + _random(10);
+				else EXP = 10 + _random(5);
+				backMessage += "经过了努力，" + userNickname + "的INT经验提升了\n";
+				backMessage += num2str(memberInfo.INT) + "（" + num2str(memberInfo.intEXP) + "）->";
+				memberInfo.intEXP += EXP;
+				memberInfo.updata();
+				backMessage += num2str(memberInfo.INT) + "（" + num2str(memberInfo.intEXP) + "）";
+				if (EXP > 40) backMessage += backMessage2;
+				else if (EXP < 20) backMessage += backMessage1;
+			}
+			else if (message.substr(tmp, 3) == "SAN" || message.substr(tmp, 6) == "理智")
+			{
+				int EXP = 0;
+				if (memberInfo.SAN <= 60) EXP = 40 + _random(20);
+				else if (memberInfo.SAN <= 80) EXP = 20 + _random(10);
+				else EXP = 10 + _random(5);
+				backMessage += "经过了努力，" + userNickname + "的SAN经验提升了\n";
+				backMessage += num2str(memberInfo.SAN) + "（" + num2str(memberInfo.sanEXP) + "）->";
+				memberInfo.sanEXP += EXP;
+				memberInfo.updata();
+				backMessage += num2str(memberInfo.SAN) + "（" + num2str(memberInfo.sanEXP) + "）";
+				if (EXP > 40) backMessage += backMessage2;
+				else if (EXP < 20) backMessage += backMessage1;
+			}
+			else 
+			{
+				send_group_message(groupNumber, "请输入以下四种技能之一：\n力量/STR    灵巧/DEX\n智力/INT     理智/SAN");
+				return;
+			}
+			
+			memberInfo.funTime = nowTime;
+			memberInfo.CP -= 2;
+			updataMemberInfo(memberInfo, licensePlateNumber, e.user_id);
+			send_group_message(groupNumber, backMessage);
+
+			SandCar carInfo = getCarInfo(licensePlateNumber);
+			Centers centerInfo = getCenterInfo(licensePlateNumber);
+			if (!centerInfo.invaders)
+			{
+				string hintMessage = "就在" + userNickname + "学习的过程中，入侵者出现了：\n";
+				int x = _random(100);
+				if (centerInfo.publicSecurity <= 20)
+				{
+					if (x <= 50)
+						centerInfo.invaders = 1, centerInfo.inv = createInvaders(100 - centerInfo.publicSecurity);
+				}
+				else if (centerInfo.publicSecurity <= 40)
+				{
+					if (x <= 20)
+						centerInfo.invaders = 1, centerInfo.inv = createInvaders(100 - centerInfo.publicSecurity);
+				}
+				else if (centerInfo.publicSecurity <= 60)
+				{
+					if (x <= 15)
+						centerInfo.invaders = 1, centerInfo.inv = createInvaders(100 - centerInfo.publicSecurity);
+				}
+				else if (centerInfo.publicSecurity <= 80)
+				{
+					if (x <= 10)
+						centerInfo.invaders = 1, centerInfo.inv = createInvaders(100 - centerInfo.publicSecurity);
+				}
+				else
+				{
+					if (x <= 5)
+						centerInfo.invaders = 1, centerInfo.inv = createInvaders(100 - centerInfo.publicSecurity);
+				}
+				if (centerInfo.invaders)
+				{
+					hintMessage += centerInfo.inv.name + "（" + num2str(centerInfo.inv.HP) + "）";
+					send_group_message(groupNumber, hintMessage);
+					updataCenterInfo(carInfo, centerInfo, licensePlateNumber);
+				}
+			}
+			
+			return;
+		}
+
+		if (message.substr(1, 4) == "fate" || message.substr(1, 4) == "rest" || message.substr(1, 5) == "sleep")
+		{
+			Members memberInfo;
+			string backMessage = "一股神秘的力量席卷全身，" + userNickname + "又可以继续工作了。";
+			string licensePlateNumber = getLicensePlateNumber(groupNumber);
+			string errorMessage1 = "没时间解释了了，快上车！\n（请使用 .getincar";//如果没有上车的情况
+			string errorMessage2 = "诶？这里好像还没有车……\n（请使用 .init 沙车阶段一 ";//如果没有车的情况
+			string errorMessage3 = userNickname + "并没有觉得有什么变化。";//如果没有FATE的情况
+
+			if (licensePlateNumber == "")
+			{
+				send_group_message(groupNumber, errorMessage2);
+				return;
+			}
+				
+			memberInfo = getMemberInfo(licensePlateNumber, e.user_id);
+			if (!memberInfo.flag)
+			{
+				send_group_message(groupNumber, errorMessage1);
+				return;
+			}
+			if (memberInfo.FATE < 1)
+			{
+				send_group_message(groupNumber, errorMessage3);
+				return;
+			}
+
+			memberInfo.FATE--;
+			memberInfo.funTime = 0;
+			updataMemberInfo(memberInfo, licensePlateNumber, e.user_id);
+			send_group_message(groupNumber, backMessage);
+			return;
+		}
+
+		if (message.substr(1, 12) == "引狼入室")
+		{
+			string licensePlateNumber = getLicensePlateNumber(groupNumber);
+			if (licensePlateNumber == "")
+				return;
+			SandCar carInfo = getCarInfo(licensePlateNumber);
+			Centers centerInfo = getCenterInfo(licensePlateNumber);
+
+			centerInfo.invaders = 1;
+			centerInfo.inv = createInvaders(100 - centerInfo.publicSecurity);
+			updataCenterInfo(carInfo, centerInfo, licensePlateNumber);
+			string backMessage = userNickname + "成功的把" + centerInfo.inv.name + "（" + num2str(centerInfo.inv.HP) + "）引了进来";
+			send_group_message(groupNumber, backMessage);
+			return;
+		}
+
+		if (message.substr(1, 12) == "驱逐出境")
+		{
+			string licensePlateNumber = getLicensePlateNumber(groupNumber);
+			if (licensePlateNumber == "")
+				return;
+			SandCar carInfo = getCarInfo(licensePlateNumber);
+			Centers centerInfo = getCenterInfo(licensePlateNumber);
+
+			string backMessage = userNickname + "成功的把" + centerInfo.inv.name + "（" + num2str(centerInfo.inv.HP) + "）丢了出去";
+			centerInfo.invaders = 0;
+			updataCenterInfo(carInfo, centerInfo, licensePlateNumber);
+			send_group_message(groupNumber, backMessage);
+			return;
 		}
 
 		e.block();
