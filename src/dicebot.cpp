@@ -4496,7 +4496,6 @@ CQ_INIT {
 			return;
 		}
 
-
         e.block(); // 阻止当前事件传递到下一个插件
         /*
         static const set<int64_t> ENABLED_GROUPS = {123456, 123457};
@@ -4690,6 +4689,7 @@ CQ_INIT {
 			outMember << "SAN" << "," << "40" << "," << "0" << endl;
 			outMember << "FATE" << "," << "2" << endl;
 			outMember << "CP" << "," << "0" << endl;
+			outMember << "物品" << "," << "0" << endl;
 			return;
 		}
 
@@ -4726,6 +4726,36 @@ CQ_INIT {
 				send_group_message(groupNumber, backMessage);
 				return;
 			}
+			if (message.substr(tmp, 6) == "物品")
+			{
+				Members memberInfo;
+				string backMessage = "";
+				string licensePlateNumber = getLicensePlateNumber(groupNumber);
+				string errorMessage1 = "没时间解释了了，快上车！\n（请使用 .getincar";//如果没有上车的情况
+				string errorMessage2 = "诶？这里好像还没有车……\n（请使用 .init 沙车阶段一 ";//如果没有车的情况
+
+				if (licensePlateNumber == "")
+				{
+					send_group_message(groupNumber, errorMessage2);
+					return;
+				}
+				
+				memberInfo = getMemberInfo(licensePlateNumber, e.user_id);
+				if (!memberInfo.flag)
+				{
+					send_group_message(groupNumber, errorMessage1);
+					return;
+				}
+				backMessage += userNickname + "随身携带的物品：";
+				if (memberInfo.bag[0].id == 0)
+					backMessage += "\n无";
+				else
+					for (unsigned int i = 0; i < memberInfo.bag.size(); i++)
+						backMessage += "\n" + memberInfo.bag[i].name + "（" + memberInfo.bag[i].function + "）";
+
+				send_group_message(groupNumber, backMessage);
+				return;
+			}
 			if (message.substr(tmp, 12) == "据点资源" || message.substr(tmp, 6) == "资源")
 			{
 				Centers centerInfo;
@@ -4754,10 +4784,9 @@ CQ_INIT {
 				else
 				{
 					string backMessage = "物资列表：\n";
-					for (unsigned int i = 0; i < centerInfo.bag.size(); i++)
-					{
+					for (unsigned int i = 0; i < centerInfo.bag.size() - 1; i++)
 						backMessage += centerInfo.bag[i].first.name + "（" + num2str(centerInfo.bag[i].second) + "）\n";
-					}
+					backMessage += centerInfo.bag[centerInfo.bag.size() - 1].first.name + "（" + num2str(centerInfo.bag[centerInfo.bag.size() - 1].second) + "）";
 					send_group_message(groupNumber, backMessage);
 				}
 				return;
@@ -4876,6 +4905,8 @@ CQ_INIT {
 
 			}
 		}
+
+		e.block();
 
     });
 

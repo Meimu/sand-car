@@ -172,7 +172,7 @@ Items createItem(int x)
 	if (x < 2000)
 		i = items2[x - 1000];
 	else
-		i = items1[x - 1000];
+		i = items1[x - 2000];
 	return i;
 }
 
